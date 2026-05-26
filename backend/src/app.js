@@ -18,11 +18,11 @@ const patientRoutes = require('./routes/patient');
 const consentRoutes = require('./routes/consent');
 const onboardingRoutes = require('./routes/onboarding');
 const apiVersion = require('./middleware/apiVersion');
+const securityHeaders = require('./middleware/securityHeaders');
 const { getRpcServer } = require('./stellar/soroban');
 
 const requestId = require('./middleware/requestId');
 const { sanitizeInputs } = require('./middleware/sanitize');
-const securityHeaders = require('./middleware/securityHeaders');
 
 const app = express();
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || '').split(',').map(o => o.trim()).filter(Boolean);
