@@ -5,7 +5,17 @@
   "scripts": {
     "start": "node src/app.js",
     "dev": "nodemon src/app.js",
-    "test": "jest --forceExit"
+    "test": "jest --forceExit",
+    "test:coverage": "jest --forceExit --coverage"
+  },
+  "jest": {
+    "collectCoverageFrom": ["src/**/*.js"],
+    "coverageReporters": ["lcov", "text-summary"],
+    "coverageThreshold": {
+      "global": {
+        "lines": 70
+      }
+    }
   },
   "dependencies": {
     "@stellar/stellar-sdk": "^12.0.0",
