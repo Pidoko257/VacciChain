@@ -8,6 +8,7 @@ Thank you for your interest in contributing to VacciChain! This document provide
 
 - [Local Setup](#local-setup)
 - [Branching Strategy](#branching-strategy)
+- [Branch Protection Rules](#branch-protection-rules)
 - [Pull Request Process](#pull-request-process)
 - [Commit Conventions](#commit-conventions)
 - [Code of Conduct](#code-of-conduct)
@@ -101,6 +102,40 @@ git checkout main
 git pull origin main
 git checkout -b issues/77-79-82-84
 ```
+
+## Branch Protection Rules
+
+The `main` branch is protected with the following rules enforced via GitHub branch protection settings:
+
+| Rule | Setting |
+|------|---------|
+| Direct pushes to `main` | **Blocked** — all changes must go through a PR |
+| Required approving reviews | **1** — at least one team member must approve |
+| Required status checks | **All CI jobs must pass** (`contract`, `backend`, `frontend`, `python`, `all-tests`) |
+| Branch deletable | **No** — `main` cannot be deleted |
+| Stale review dismissal | **Enabled** — new commits dismiss existing approvals |
+
+### What This Means for Contributors
+
+- You **cannot push directly** to `main`. Always create a feature branch and open a PR.
+- Your PR **will not be mergeable** until:
+  1. At least one reviewer has approved it.
+  2. All CI checks (tests, linting, security scans) have passed.
+- If you push new commits after receiving an approval, the approval is **automatically dismissed** and re-review is required.
+- The `main` branch **cannot be deleted** or force-pushed under any circumstances.
+
+### Configuring Branch Protection (Maintainers Only)
+
+To apply or update these rules, go to **GitHub → Settings → Branches → Branch protection rules** and configure the `main` branch with:
+
+- ✅ Require a pull request before merging
+  - ✅ Require approvals: **1**
+  - ✅ Dismiss stale pull request approvals when new commits are pushed
+- ✅ Require status checks to pass before merging
+  - ✅ Require branches to be up to date before merging
+  - Add required checks: `All tests passed` (the `all-tests` gate job in `ci.yml`)
+- ✅ Do not allow bypassing the above settings
+- ✅ Restrict deletions
 
 ## Pull Request Process
 
