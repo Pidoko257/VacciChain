@@ -5,88 +5,90 @@ on:
     branches: [main, develop]
     paths:
       - 'frontend/**'
+      - 'backend/**'
+      - 'docker-compose.yml'
+      - 'docker-compose.e2e.yml'
       - '.github/workflows/e2e.yml'
   pull_request:
     branches: [main, develop]
     paths:
       - 'frontend/**'
+      - 'backend/**'
+      - 'docker-compose.yml'
+      - 'docker-compose.e2e.yml'
 
 jobs:
   e2e:
-    timeout-minutes: 60
+    name: E2E – issuer→patient journey
+    timeout-minutes: 30
     runs-on: ubuntu-latest
-    
-    services:
-      backend:
-        image: node:18
-        options: >-
-          --health-cmd "curl -f http://localhost:4000/health || exit 1"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 4000:4000
-        env:
-          STELLAR_NETWORK: testnet
-          HORIZON_URL: https://horizon-testnet.stellar.org
-          SOROBAN_RPC_URL: https://soroban-testnet.stellar.org
-          STELLAR_NETWORK_PASSPHRASE: Test SDF Network ; September 2015
-          VACCINATIONS_CONTRACT_ID: CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4
-          ADMIN_SECRET_KEY: STEST000000000000000000000000000000000000000000000000000
-          SEP10_SERVER_KEY: STEST000000000000000000000000000000000000000000000000001
-          JWT_SECRET: test-jwt-secret
-          NODE_ENV: test
-        steps:
-          - uses: actions/checkout@v4
-          - uses: actions/setup-node@v4
-            with:
-              node-version: '18'
-          - run: cd backend && npm install && npm start &
 
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: actions/setup-node@v4
         with:
           node-version: '18'
-      
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
       - name: Install frontend dependencies
-        run: cd frontend && npm install
-      
+        run: npm ci
+        working-directory: frontend
+
       - name: Install Playwright browsers
-        run: cd frontend && npx playwright install --with-deps
-      
-      - name: Wait for backend to be ready
+        run: npx playwright install chromium --with-deps
+        working-directory: frontend
+
+      - name: Start stack (HTTP-only override)
+        run: docker compose -f docker-compose.yml -f docker-compose.e2e.yml up -d --build
+        env:
+          # Minimal env so the backend starts without real Stellar keys
+          STELLAR_NETWORK: testnet
+          HORIZON_URL: https://horizon-testnet.stellar.org
+          SOROBAN_RPC_URL: https://soroban-testnet.stellar.org
+          STELLAR_NETWORK_PASSPHRASE: "Test SDF Network ; September 2015"
+          VACCINATIONS_CONTRACT_ID: CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4
+          ADMIN_SECRET_KEY: SAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA0
+          ADMIN_PUBLIC_KEY: GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF
+          SEP10_SERVER_KEY: SAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA1
+          ISSUER_SECRET_KEY: SAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA2
+          JWT_SECRET: e2e-test-jwt-secret-not-for-production
+
+      - name: Wait for frontend to be ready
         run: |
-          for i in {1..30}; do
-            if curl -f http://localhost:4000/health; then
-              echo "Backend is ready"
-              exit 0
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3000; then
+              echo "Frontend ready"; exit 0
             fi
-            echo "Waiting for backend... ($i/30)"
-            sleep 2
+            echo "Waiting... ($i/30)"; sleep 3
           done
-          echo "Backend failed to start"
+          docker compose -f docker-compose.yml -f docker-compose.e2e.yml logs
           exit 1
-      
+
       - name: Run E2E tests
-        run: cd frontend && npm run test:e2e
+        run: npx playwright test e2e/issue-vaccination.spec.js --project=chromium
+        working-directory: frontend
         env:
           CI: true
-      
-      - name: Upload test results
+
+      - name: Stop stack
+        if: always()
+        run: docker compose -f docker-compose.yml -f docker-compose.e2e.yml down -v
+
+      - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
           path: frontend/playwright-report/
-          retention-days: 30
-      
-      - name: Upload test videos
+          retention-days: 14
+
+      - name: Upload failure artifacts
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: test-videos
+          name: test-results
           path: frontend/test-results/
           retention-days: 7
 
@@ -100,15 +102,20 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
 
       - name: Install frontend dependencies
-        run: cd frontend && npm install
+        run: npm ci
+        working-directory: frontend
 
       - name: Install Playwright Chromium
-        run: cd frontend && npx playwright install chromium --with-deps
+        run: npx playwright install chromium --with-deps
+        working-directory: frontend
 
       - name: Run visual regression tests
-        run: cd frontend && npx playwright test e2e/visual.spec.js --project=chromium
+        run: npx playwright test e2e/visual.spec.js --project=chromium
+        working-directory: frontend
         env:
           CI: true
 
