@@ -1,51 +1,47 @@
 import { useState, useCallback } from 'react';
 import { useAuth } from './useFreighter';
+import { useToast } from './useToast';
 
 export function useVaccination() {
-  const { token } = useAuth();
+  const { apiFetch } = useAuth();
+  const toast = useToast();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
 
-  const fetchRecords = useCallback(async (wallet) => {
+  const fetchRecords = useCallback(async (wallet, { page = 1, limit = 20 } = {}) => {
     setLoading(true);
-    setError(null);
     try {
-      const res = await fetch(`/vaccination/${wallet}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await apiFetch(`/v1/vaccination/${wallet}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       return data;
     } catch (e) {
-      setError(e.message);
+      toast(e.message || 'Failed to fetch records.', 'error');
       return null;
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [apiFetch, toast]);
 
   const issueVaccination = useCallback(async (payload) => {
     setLoading(true);
-    setError(null);
     try {
-      const res = await fetch('/vaccination/issue', {
+      const res = await apiFetch('/v1/vaccination/issue', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+      const explorerUrl = `https://stellar.expert/explorer/testnet/tx/${data.transactionHash}`;
+      toast(`Vaccination NFT minted! Token ID: ${data.tokenId} — View on Explorer: ${explorerUrl}`, 'success');
       return data;
     } catch (e) {
-      setError(e.message);
+      toast(e.message || 'Failed to issue vaccination.', 'error');
       return null;
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [apiFetch, toast]);
 
-  return { fetchRecords, issueVaccination, loading, error };
+  return { fetchRecords, issueVaccination, loading };
 }
