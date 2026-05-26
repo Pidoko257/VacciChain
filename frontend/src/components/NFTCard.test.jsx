@@ -1,5 +1,8 @@
 import { render, screen, fireEvent } from '@testing-library/react';
+import { axe, toHaveNoViolations } from 'jest-axe';
 import NFTCard from './NFTCard';
+
+expect.extend(toHaveNoViolations);
 
 describe('NFTCard', () => {
   const mockRecord = {

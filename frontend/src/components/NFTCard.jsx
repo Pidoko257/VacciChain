@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import CopyButton from './CopyButton';
+import NFTCardSkeleton from './NFTCardSkeleton';
 
 async function exportCertificate(record) {
   const [{ jsPDF }, QRCode] = await Promise.all([
@@ -29,13 +30,15 @@ async function exportCertificate(record) {
   doc.save(`VacciChain_${safeName}_${record.date_administered}.pdf`);
 }
 
-export default function NFTCard({ record, onClick }) {
+export default function NFTCard({ record, onClick, loading = false }) {
   const { t } = useTranslation();
+
+  if (loading) return <NFTCardSkeleton count={1} />;
 
   return (
     <div
       data-testid="nft-card"
-      role="button"
+      aria-label={`Vaccination record: ${record.vaccine_name}`}
       tabIndex={0}
       onClick={onClick}
       onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onClick?.()}
