@@ -8,6 +8,8 @@
  * - Wrong role rejected
  * - Missing required claims rejected
  * - Invalid token format rejected
+ *
+ * Closes #335
  */
 
 const jwt = require('jsonwebtoken');
@@ -46,7 +48,6 @@ const validPayload = () => ({
   sub: WALLET,
   role: 'patient',
   wallet: WALLET,
-  exp: Math.floor(Date.now() / 1000) + 3600,
 });
 
 beforeEach(() => {
@@ -87,7 +88,7 @@ describe('authMiddleware — valid JWT', () => {
       { kid: 'k2', secret: altSecret },
     ]);
     // Sign with the second key
-    const token = jwt.sign(validPayload(), altSecret, { keyid: 'k2' });
+    const token = jwt.sign(validPayload(), altSecret, { keyid: 'k2', expiresIn: '1h' });
     const req = makeReq(token);
     const res = makeRes();
     const next = jest.fn();
