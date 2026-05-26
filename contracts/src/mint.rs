@@ -1,6 +1,8 @@
 use soroban_sdk::{Env, Address, String, Vec};
-use crate::storage::{DataKey, VaccinationRecord};
+use crate::storage::{DataKey, VaccinationRecord, IssuerRecord, compute_token_id};
 use crate::events;
+use crate::ContractError;
+use crate::validate_input_length;
 
 pub fn mint_vaccination(
     env: &Env,
@@ -8,7 +10,12 @@ pub fn mint_vaccination(
     vaccine_name: String,
     date_administered: String,
     issuer: Address,
-) -> u64 {
+    dose_number: Option<u32>,
+    dose_series: Option<u32>,
+) -> Result<u64, ContractError> {
+    validate_input_length(&vaccine_name, "vaccine_name")?;
+    validate_input_length(&date_administered, "date_administered")?;
+
     // Require issuer auth
     issuer.require_auth();
 
@@ -16,13 +23,42 @@ pub fn mint_vaccination(
     let is_authorized: bool = env
         .storage()
         .persistent()
-        .get(&DataKey::Issuer(issuer.clone()))
+        .get::<DataKey, IssuerRecord>(&DataKey::Issuer(issuer.clone()))
+        .map(|r| r.authorized)
         .unwrap_or(false);
     if !is_authorized {
-        panic!("unauthorized issuer");
+        return Err(ContractError::Unauthorized);
     }
 
-    // Duplicate detection: check if patient already has this vaccine from this issuer
+    // Check patient has self-registered
+    let is_registered: bool = env
+        .storage()
+        .persistent()
+        .get::<DataKey, bool>(&DataKey::PatientAllowlist(patient.clone()))
+        .unwrap_or(false);
+    if !is_registered {
+        return Err(ContractError::PatientNotRegistered);
+    }
+
+    // Compute deterministic token_id:
+    //   SHA-256(patient_xdr || vaccine_name || date_administered || issuer_xdr || ledger_sequence)
+    //   truncated to first 8 bytes as big-endian u64.
+    let ledger_sequence = env.ledger().sequence();
+    let token_id = compute_token_id(
+        env,
+        &patient,
+        &vaccine_name,
+        &date_administered,
+        &issuer,
+        ledger_sequence,
+    );
+
+    // Duplicate detection: token_id collision means identical record already exists
+    if env.storage().persistent().has(&DataKey::Token(token_id)) {
+        return Err(ContractError::DuplicateRecord);
+    }
+
+    // Also check patient's existing tokens for same (vaccine_name, date_administered)
     let tokens: Vec<u64> = env
         .storage()
         .persistent()
@@ -36,9 +72,19 @@ pub fn mint_vaccination(
             .persistent()
             .get(&DataKey::Token(tid))
             .unwrap();
-        if record.vaccine_name == vaccine_name && record.issuer == issuer {
-            panic!("duplicate vaccination record");
+        if record.vaccine_name == vaccine_name && record.date_administered == date_administered {
+            return Err(ContractError::DuplicateRecord);
         }
+    }
+
+    // Enforce per-patient record limit (default: 50)
+    let limit: u32 = env
+        .storage()
+        .persistent()
+        .get(&DataKey::PatientRecordLimit)
+        .unwrap_or(50u32);
+    if tokens.len() >= limit {
+        panic!("record limit exceeded");
     }
 
     // Assign token ID
@@ -55,6 +101,10 @@ pub fn mint_vaccination(
         date_administered,
         issuer: issuer.clone(),
         timestamp: env.ledger().timestamp(),
+        schema_version: 1,
+        revoked: false,
+        dose_number,
+        dose_series,
     };
 
     // Persist token
@@ -70,5 +120,5 @@ pub fn mint_vaccination(
 
     events::emit_minted(env, token_id, &patient, &vaccine_name, &issuer);
 
-    token_id
+    Ok(token_id)
 }
