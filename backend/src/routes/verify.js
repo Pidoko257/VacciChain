@@ -10,6 +10,9 @@ const { audit } = require('../middleware/auditLog');
 
 const router = express.Router();
 
+const verifyCache = new Map();
+const CACHE_TTL = 30 * 1000; // 30 seconds
+
 /**
  * Try JWT first; if no Authorization header, fall through to API key auth.
  * One of the two must succeed — otherwise 401.
@@ -86,10 +89,28 @@ router.get(
     const { wallet } = req.params;
     const actor = req.verifier ? `apikey:${req.verifier.id}` : (req.user?.wallet ?? 'unknown');
 
+    const now = Date.now();
+    const cached = verifyCache.get(wallet);
+    if (cached && (now - cached.timestamp < CACHE_TTL)) {
+      return res.json({
+        wallet,
+        vaccinated: cached.vaccinated,
+        verified: cached.vaccinated,
+        record_count: cached.records.length,
+        records: cached.records
+      });
+    }
+
     try {
       const args = [StellarSdk.Address.fromString(wallet).toScVal()];
       const result = await simulateContract('verify_vaccination', args);
       const [vaccinated, records] = StellarSdk.scValToNative(result);
+
+      verifyCache.set(wallet, {
+        vaccinated,
+        records,
+        timestamp: now
+      });
 
       audit({
         actor,
@@ -99,13 +120,20 @@ router.get(
         meta: req.verifier ? { verifier_label: req.verifier.label } : {},
       });
 
-      res.json({ wallet, vaccinated, record_count: records.length, records });
+      res.json({ wallet, vaccinated, verified: vaccinated, record_count: records.length, records });
     } catch (err) {
       const errorMessage = resolveContractErrorMessage(err);
       audit({ actor, action: 'verify.lookup', target: wallet, result: 'failure', meta: { error: errorMessage } });
-      res.status(500).json({ error: errorMessage });
+      
+      const isTimeout = err.message && (
+        err.message.toLowerCase().includes('timeout') ||
+        err.message.toLowerCase().includes('deadline') ||
+        err.message.toLowerCase().includes('abort')
+      );
+      res.status(isTimeout ? 503 : 500).json({ error: errorMessage });
     }
   }
 );
 
+router.verifyCache = verifyCache;
 module.exports = router;
