@@ -7,6 +7,12 @@ services:
       - backend
     networks:
       - vaccichain
+    deploy:
+      resources:
+        limits:
+          # Static React build served by nginx — minimal runtime footprint
+          cpus: "0.25"
+          memory: 128M
 
   backend:
     build: ./backend
@@ -17,6 +23,12 @@ services:
       - python-service
     networks:
       - vaccichain
+    deploy:
+      resources:
+        limits:
+          # Node.js Express API + Stellar SDK calls; headroom for JWT/SEP-10 processing
+          cpus: "0.75"
+          memory: 512M
 
   python-service:
     build: ./python-service
@@ -26,6 +38,12 @@ services:
       - BACKEND_URL=http://backend:4000
     networks:
       - vaccichain
+    deploy:
+      resources:
+        limits:
+          # FastAPI analytics; batch verification can be memory-intensive
+          cpus: "0.50"
+          memory: 256M
 
 networks:
   vaccichain:
