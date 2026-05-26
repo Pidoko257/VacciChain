@@ -186,9 +186,18 @@ jobs:
   all-tests:
     name: All tests passed
     runs-on: ubuntu-latest
-    needs: [contract, backend, frontend, python, gitleaks]
+    needs: [contract, backend, frontend, python, gitleaks, validate-env]
     steps:
       - run: echo "All test jobs passed."
+
+  validate-env:
+    name: Validate .env.example
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check all required variables are in .env.example
+        run: bash scripts/validate-env-example.sh
 
   gitleaks:
     name: Secret scanning (Gitleaks)
