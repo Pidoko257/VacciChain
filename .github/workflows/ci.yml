@@ -186,9 +186,52 @@ jobs:
   all-tests:
     name: All tests passed
     runs-on: ubuntu-latest
-    needs: [contract, backend, frontend, python]
+    needs: [contract, backend, frontend, python, gitleaks]
     steps:
       - run: echo "All test jobs passed."
+
+  gitleaks:
+    name: Secret scanning (Gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        id: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+
+      - name: Write job summary
+        if: always()
+        run: |
+          if [ "${{ steps.gitleaks.outcome }}" = "success" ]; then
+            echo "## ✅ Gitleaks Secret Scan" >> $GITHUB_STEP_SUMMARY
+            echo "No secrets detected." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## ❌ Gitleaks Secret Scan — Secrets Detected" >> $GITHUB_STEP_SUMMARY
+            echo "Gitleaks found potential secrets in this commit. Review the report artifact." >> $GITHUB_STEP_SUMMARY
+            if [ -f gitleaks-report.json ]; then
+              echo '```json' >> $GITHUB_STEP_SUMMARY
+              cat gitleaks-report.json >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+            fi
+          fi
+
+      - name: Upload Gitleaks report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitleaks-report
+          path: gitleaks-report.json
+          retention-days: 30
+
+      - name: Fail if secrets detected
+        if: steps.gitleaks.outcome == 'failure'
+        run: exit 1
 
   docker:
     name: Docker build validation
