@@ -1,4 +1,18 @@
 services:
+  nginx:
+    image: nginx:1.25-alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./frontend/dist:/usr/share/nginx/html:ro
+    depends_on:
+      - backend
+      - python-service
+    networks:
+      - vaccichain
+    restart: unless-stopped
+
   frontend:
     build: ./frontend
     ports:
