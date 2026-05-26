@@ -14,16 +14,15 @@ const vaccinationRoutes = require('./routes/vaccination');
 const verifyRoutes = require('./routes/verify');
 const adminRoutes = require('./routes/admin');
 const eventsRoutes = require('./routes/events');
-
 const patientRoutes = require('./routes/patient');
 const consentRoutes = require('./routes/consent');
-const eventsRoutes = require('./routes/events');
 const onboardingRoutes = require('./routes/onboarding');
 const apiVersion = require('./middleware/apiVersion');
 const { getRpcServer } = require('./stellar/soroban');
 
 const requestId = require('./middleware/requestId');
 const { sanitizeInputs } = require('./middleware/sanitize');
+const securityHeaders = require('./middleware/securityHeaders');
 
 const app = express();
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || '').split(',').map(o => o.trim()).filter(Boolean);
@@ -39,7 +38,6 @@ app.use(cors({
   credentials: true
 }));
 app.use(securityHeaders);
-app.use(cors());
 app.use(express.json({ limit: config.BODY_LIMIT }));
 app.use(requestId);
 // Sanitize all string inputs at the API boundary (strips HTML tags, control chars, null bytes)
