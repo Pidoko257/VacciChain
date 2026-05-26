@@ -83,4 +83,45 @@ describe('VerificationBadge', () => {
 
     expect(screen.getByText('No Records Found')).toBeInTheDocument();
   });
+
+  // Accessibility and ARIA tests — Closes #343
+  it('badge has aria-label when verified', () => {
+    render(<VerificationBadge status="verified" recordCount={2} />);
+    const badge = screen.getByTestId('verification-badge');
+    expect(badge).toHaveAttribute('aria-label');
+    expect(badge.getAttribute('aria-label')).toBeTruthy();
+  });
+
+  it('badge has aria-label when not verified', () => {
+    render(<VerificationBadge vaccinated={false} />);
+    const badge = screen.getByTestId('verification-badge');
+    expect(badge).toHaveAttribute('aria-label');
+    expect(badge.getAttribute('aria-label')).toBeTruthy();
+  });
+
+  it('renders correctly with record details (recordCount > 0)', () => {
+    render(<VerificationBadge status="verified" vaccinated={true} recordCount={5} />);
+    expect(screen.getByText('Verified: 5 Records')).toBeInTheDocument();
+  });
+
+  it('renders correctly without record details (recordCount = 0)', () => {
+    render(<VerificationBadge status="verified" vaccinated={true} recordCount={0} />);
+    expect(screen.getByTestId('verification-badge')).toBeInTheDocument();
+    expect(screen.getByText('✓')).toBeInTheDocument();
+  });
+
+  it('verified badge aria-label contains meaningful text', () => {
+    render(<VerificationBadge status="verified" recordCount={3} />);
+    const badge = screen.getByTestId('verification-badge');
+    const label = badge.getAttribute('aria-label');
+    // Should reference verification state
+    expect(label.toLowerCase()).toMatch(/verif/);
+  });
+
+  it('not-found badge aria-label contains meaningful text', () => {
+    render(<VerificationBadge status="not-found" />);
+    const badge = screen.getByTestId('verification-badge');
+    const label = badge.getAttribute('aria-label');
+    expect(label).toBeTruthy();
+  });
 });
