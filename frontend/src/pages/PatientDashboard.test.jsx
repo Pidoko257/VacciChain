@@ -134,5 +134,24 @@ describe('PatientDashboard', () => {
       render(<PatientDashboard />);
       await waitFor(() => expect(mockFetch).toHaveBeenCalledWith(WALLET, { page: 1, limit: 20 }));
     });
+
+    // Edge case / null value tests — Closes #345
+    it('handles API response with null records array gracefully', async () => {
+      useVaccination.mockReturnValue({
+        fetchRecords: jest.fn().mockResolvedValue({ data: null, total: 0, page: 1, limit: 20 }),
+        loading: false,
+      });
+      render(<PatientDashboard />);
+      await waitFor(() => expect(screen.getByText(/No vaccination records found/i)).toBeInTheDocument());
+    });
+
+    it('handles API response with undefined data gracefully', async () => {
+      useVaccination.mockReturnValue({
+        fetchRecords: jest.fn().mockResolvedValue({ total: 0, page: 1, limit: 20 }),
+        loading: false,
+      });
+      render(<PatientDashboard />);
+      await waitFor(() => expect(screen.getByText(/No vaccination records found/i)).toBeInTheDocument());
+    });
   });
 });

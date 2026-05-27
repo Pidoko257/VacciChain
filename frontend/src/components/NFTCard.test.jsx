@@ -1,5 +1,8 @@
 import { render, screen, fireEvent } from '@testing-library/react';
+import { axe, toHaveNoViolations } from 'jest-axe';
 import NFTCard from './NFTCard';
+
+expect.extend(toHaveNoViolations);
 
 describe('NFTCard', () => {
   const mockRecord = {
@@ -88,5 +91,21 @@ describe('NFTCard', () => {
     render(<NFTCard record={mockRecord} />);
     expect(screen.queryByText(/doses/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Dose \d/)).not.toBeInTheDocument();
+  });
+
+  // Edge case / null value tests — Closes #345
+  it('renders without crashing when issuer is null', () => {
+    render(<NFTCard record={{ ...mockRecord, issuer: null }} />);
+    expect(screen.getByTestId('nft-card')).toBeInTheDocument();
+  });
+
+  it('renders without crashing when issuer is undefined', () => {
+    render(<NFTCard record={{ ...mockRecord, issuer: undefined }} />);
+    expect(screen.getByTestId('nft-card')).toBeInTheDocument();
+  });
+
+  it('renders without crashing when patient is null', () => {
+    render(<NFTCard record={{ ...mockRecord, patient: null }} />);
+    expect(screen.getByTestId('nft-card')).toBeInTheDocument();
   });
 });

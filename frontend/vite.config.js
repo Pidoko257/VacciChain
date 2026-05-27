@@ -11,4 +11,15 @@ export default defineConfig({
       '/verify': 'http://backend:4000',
     },
   },
+  test: {
+    environment: 'jsdom',
+    coverage: {
+      provider: 'v8',
+      reporter: ['lcov', 'text-summary'],
+      include: ['src/**/*.{js,jsx}'],
+      thresholds: {
+        lines: 70,
+      },
+    },
+  },
 });
