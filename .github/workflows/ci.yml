@@ -186,7 +186,7 @@ jobs:
   all-tests:
     name: All tests passed
     runs-on: ubuntu-latest
-    needs: [contract, backend, frontend, python, gitleaks, validate-env]
+    needs: [contract, backend, frontend, python, gitleaks, docker, container-scan, validate-env]
     steps:
       - run: echo "All test jobs passed."
 
@@ -274,30 +274,43 @@ jobs:
         run: docker build ./python-service -t vaccichain-python:ci
 
       - name: Run Trivy scan on backend
-        uses: aquasecurity/trivy-action@master
+        id: scan-backend
+        uses: aquasecurity/trivy-action@v1
         with:
           image-ref: vaccichain-backend:ci
           format: sarif
           output: backend-trivy.sarif
           severity: HIGH,CRITICAL
+          ignorefile: .trivyignore
+          exit-code: 1
+        continue-on-error: true
 
       - name: Run Trivy scan on frontend
-        uses: aquasecurity/trivy-action@master
+        id: scan-frontend
+        uses: aquasecurity/trivy-action@v1
         with:
           image-ref: vaccichain-frontend:ci
           format: sarif
           output: frontend-trivy.sarif
           severity: HIGH,CRITICAL
+          ignorefile: .trivyignore
+          exit-code: 1
+        continue-on-error: true
 
       - name: Run Trivy scan on python-service
-        uses: aquasecurity/trivy-action@master
+        id: scan-python
+        uses: aquasecurity/trivy-action@v1
         with:
           image-ref: vaccichain-python:ci
           format: sarif
           output: python-trivy.sarif
           severity: HIGH,CRITICAL
+          ignorefile: .trivyignore
+          exit-code: 1
+        continue-on-error: true
 
       - name: Upload Trivy results to GitHub Security
+        if: always()
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: |
@@ -306,6 +319,7 @@ jobs:
             python-trivy.sarif
 
       - name: Upload scan artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: trivy-scan-results
@@ -314,6 +328,14 @@ jobs:
             frontend-trivy.sarif
             python-trivy.sarif
           retention-days: 30
+
+      - name: Fail on HIGH/CRITICAL vulnerabilities
+        if: always()
+        run: |
+          if [[ "${{ steps.scan-backend.outcome }}" == "failure" || "${{ steps.scan-frontend.outcome }}" == "failure" || "${{ steps.scan-python.outcome }}" == "failure" ]]; then
+            echo "One or more container images contain HIGH or CRITICAL vulnerabilities."
+            exit 1
+          fi
 
   container-scan-scheduled:
     name: Weekly container vulnerability scan
@@ -332,27 +354,43 @@ jobs:
         run: docker build ./python-service -t vaccichain-python:prod
 
       - name: Run Trivy scan on backend
-        uses: aquasecurity/trivy-action@master
+        id: scan-scheduled-backend
+        uses: aquasecurity/trivy-action@v1
         with:
           image-ref: vaccichain-backend:prod
           format: table
           output: backend-scan.txt
+          ignorefile: .trivyignore
+          severity: HIGH,CRITICAL
+          exit-code: 1
+        continue-on-error: true
 
       - name: Run Trivy scan on frontend
-        uses: aquasecurity/trivy-action@master
+        id: scan-scheduled-frontend
+        uses: aquasecurity/trivy-action@v1
         with:
           image-ref: vaccichain-frontend:prod
           format: table
           output: frontend-scan.txt
+          ignorefile: .trivyignore
+          severity: HIGH,CRITICAL
+          exit-code: 1
+        continue-on-error: true
 
       - name: Run Trivy scan on python-service
-        uses: aquasecurity/trivy-action@master
+        id: scan-scheduled-python
+        uses: aquasecurity/trivy-action@v1
         with:
           image-ref: vaccichain-python:prod
           format: table
           output: python-scan.txt
+          ignorefile: .trivyignore
+          severity: HIGH,CRITICAL
+          exit-code: 1
+        continue-on-error: true
 
       - name: Upload scan results
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: weekly-trivy-scans
@@ -361,3 +399,11 @@ jobs:
             frontend-scan.txt
             python-scan.txt
           retention-days: 90
+
+      - name: Fail on HIGH/CRITICAL vulnerabilities
+        if: always()
+        run: |
+          if [[ "${{ steps.scan-scheduled-backend.outcome }}" == "failure" || "${{ steps.scan-scheduled-frontend.outcome }}" == "failure" || "${{ steps.scan-scheduled-python.outcome }}" == "failure" ]]; then
+            echo "One or more scheduled container images contain HIGH or CRITICAL vulnerabilities."
+            exit 1
+          fi
