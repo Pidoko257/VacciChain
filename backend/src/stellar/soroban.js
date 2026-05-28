@@ -255,6 +255,7 @@ module.exports = {
   mintVaccination,
   verifyVaccination,
   addIssuer,
+  revokeIssuer,
   SorobanError,
   SorobanRpcError,
   SorobanTransactionError,
@@ -272,4 +273,17 @@ async function addIssuer(issuerWallet) {
     StellarSdk.Address.fromString(issuerWallet).toScAddress()
   )];
   return invokeContract(adminSecret, 'add_issuer', args);
+}
+
+/**
+ * Revoke an issuer from the contract allowlist (admin-signed).
+ * @param {string} issuerWallet - Stellar public key to deauthorize
+ */
+async function revokeIssuer(issuerWallet) {
+  const adminSecret = process.env.ADMIN_SECRET_KEY;
+  if (!adminSecret) throw new Error('ADMIN_SECRET_KEY not configured');
+  const args = [StellarSdk.xdr.ScVal.scvAddress(
+    StellarSdk.Address.fromString(issuerWallet).toScAddress()
+  )];
+  return invokeContract(adminSecret, 'revoke_issuer', args);
 }
