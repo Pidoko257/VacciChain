@@ -9,6 +9,35 @@ const {
   SOROBAN_RPC_MAX_RETRIES,
 } = config;
 
+class SorobanError extends Error {
+  constructor(message, originalError) {
+    super(message);
+    this.name = 'SorobanError';
+    this.original = originalError;
+  }
+}
+
+class SorobanRpcError extends SorobanError {
+  constructor(message, originalError) {
+    super(message, originalError);
+    this.name = 'SorobanRpcError';
+  }
+}
+
+class SorobanTransactionError extends SorobanError {
+  constructor(message, originalError) {
+    super(message, originalError);
+    this.name = 'SorobanTransactionError';
+  }
+}
+
+class SorobanSimulationError extends SorobanError {
+  constructor(message, originalError) {
+    super(message, originalError);
+    this.name = 'SorobanSimulationError';
+  }
+}
+
 // Fee in stroops (1 XLM = 10_000_000 stroops). Minimum is 100.
 const TX_FEE = String(process.env.SOROBAN_FEE || 100);
 // Inclusion tip in stroops for priority during congestion (0 = no tip).
@@ -129,6 +158,67 @@ async function invokeContract(secretKey, method, args) {
   return { returnValue: result.returnValue, hash: response.hash, ledger: result.ledger };
 }
 
+function toOptionalU32(value) {
+  return value != null
+    ? StellarSdk.xdr.ScVal.scvVec([StellarSdk.xdr.ScVal.scvU32(value)])
+    : StellarSdk.xdr.ScVal.scvVoid();
+}
+
+/**
+ * Mint a vaccination record and submit a signed transaction.
+ * @param {string} patient - Stellar address of the patient
+ * @param {string} vaccineName - Vaccine name
+ * @param {string} dateAdministered - ISO-8601 timestamp
+ * @param {string} issuerSecret - Issuer secret key for signing
+ * @param {Object} [options]
+ * @param {number|null} [options.doseNumber]
+ * @param {number|null} [options.doseSeries]
+ */
+async function mintVaccination(patient, vaccineName, dateAdministered, issuerSecret, options = {}) {
+  try {
+    const issuerKeypair = StellarSdk.Keypair.fromSecret(issuerSecret);
+    const args = [
+      StellarSdk.Address.fromString(patient).toScVal(),
+      StellarSdk.xdr.ScVal.scvString(vaccineName),
+      StellarSdk.xdr.ScVal.scvString(dateAdministered),
+      StellarSdk.Address.fromString(issuerKeypair.publicKey()).toScVal(),
+      toOptionalU32(options.doseNumber),
+      toOptionalU32(options.doseSeries),
+    ];
+
+    const result = await invokeContract(issuerSecret, 'mint_vaccination', args);
+    const tokenId = StellarSdk.scValToNative(result.returnValue);
+    return {
+      tokenId,
+      hash: result.hash,
+      ledger: result.ledger,
+    };
+  } catch (error) {
+    if (error instanceof SorobanError) throw error;
+    throw new SorobanTransactionError('Failed to mint vaccination record', error);
+  }
+}
+
+/**
+ * Verify vaccination status via a read-only contract call.
+ * @param {string} wallet - Stellar wallet address to verify
+ */
+async function verifyVaccination(wallet) {
+  try {
+    const args = [StellarSdk.Address.fromString(wallet).toScVal()];
+    const rawResult = await simulateContract('verify_vaccination', args);
+    const [vaccinated, records] = StellarSdk.scValToNative(rawResult);
+    return {
+      wallet,
+      vaccinated,
+      records: Array.isArray(records) ? records : [],
+    };
+  } catch (error) {
+    if (error instanceof SorobanError) throw error;
+    throw new SorobanSimulationError('Failed to verify vaccination status', error);
+  }
+}
+
 /**
  * Read-only contract call (no signing needed).
  */
@@ -158,7 +248,18 @@ async function simulateContract(method, args) {
   return sim.result?.retval;
 }
 
-module.exports = { getRpcServer, invokeContract, simulateContract, addIssuer };
+module.exports = {
+  getRpcServer,
+  invokeContract,
+  simulateContract,
+  mintVaccination,
+  verifyVaccination,
+  addIssuer,
+  SorobanError,
+  SorobanRpcError,
+  SorobanTransactionError,
+  SorobanSimulationError,
+};
 
 /**
  * Add a new issuer to the contract allowlist (admin-signed).

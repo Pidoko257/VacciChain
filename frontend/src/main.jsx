@@ -7,13 +7,11 @@ import ErrorBoundary from './components/ErrorBoundary';
 import './index.css';
 
 async function enableMocking() {
-  if (!import.meta.env.DEV) {
-    return;
+  if (import.meta.env.DEV) {
+    const { worker } = await import('./mocks/browser');
+    return worker.start();
   }
-  const { worker } = await import('./mocks/browser');
-  return worker.start();
 }
-
 
 enableMocking().then(() => {
   ReactDOM.createRoot(document.getElementById('root')).render(
@@ -26,4 +24,3 @@ enableMocking().then(() => {
     </React.StrictMode>
   );
 });
-

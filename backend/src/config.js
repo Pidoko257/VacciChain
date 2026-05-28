@@ -30,6 +30,9 @@ const schema = z.object({
   SOROBAN_FEE: z.coerce.number().int().positive().default(100),
   SOROBAN_TIP: z.coerce.number().int().min(0).default(0),
 
+  // Health probe interval for cached dependency status
+  HEALTH_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(15000),
+
   // Request limits
   BODY_LIMIT: z.string().default('10kb'),
 

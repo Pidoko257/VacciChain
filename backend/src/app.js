@@ -14,32 +14,34 @@ const vaccinationRoutes = require('./routes/vaccination');
 const verifyRoutes = require('./routes/verify');
 const adminRoutes = require('./routes/admin');
 const eventsRoutes = require('./routes/events');
-
 const patientRoutes = require('./routes/patient');
 const consentRoutes = require('./routes/consent');
-const eventsRoutes = require('./routes/events');
 const onboardingRoutes = require('./routes/onboarding');
 const apiVersion = require('./middleware/apiVersion');
-const { getRpcServer } = require('./stellar/soroban');
+const { getHealthStatus, startHealthProbe } = require('./health');
 
 const requestId = require('./middleware/requestId');
 const { sanitizeInputs } = require('./middleware/sanitize');
+const securityHeaders = require('./middleware/securityHeaders');
 
 const app = express();
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || '').split(',').map(o => o.trim()).filter(Boolean);
 
 app.use(cors({
   origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       callback(null, false);
     }
   },
-  credentials: true
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Authorization', 'Content-Type'],
+  credentials: true,
+  optionsSuccessStatus: 204,
 }));
 app.use(securityHeaders);
-app.use(cors());
 app.use(express.json({ limit: config.BODY_LIMIT }));
 app.use(requestId);
 // Sanitize all string inputs at the API boundary (strips HTML tags, control chars, null bytes)
@@ -89,25 +91,19 @@ app.use(['/auth', '/vaccination', '/verify', '/admin', '/patient', '/events'], (
  * Health check endpoint.
  *
  * @route GET /health
- * @returns {Object} 200 - { status: "ok", soroban: true, timestamp }
- * @returns {Object} 503 - { status: "degraded", soroban: false, timestamp }
+ * @returns {Object} 200 - { status: "ok", uptime }
+ * @returns {Object} 503 - { status: "degraded", uptime }
  */
 app.get('/health', async (_req, res) => {
-  let soroban = false;
-  try {
-    await getRpcServer().getHealth();
-    soroban = true;
-  } catch (_err) {
-    // RPC unreachable
-  }
-  const body = { status: soroban ? 'ok' : 'degraded', soroban, timestamp: new Date().toISOString() };
-  res.status(soroban ? 200 : 503).json(body);
+  const body = getHealthStatus();
+  res.status(body.status === 'ok' ? 200 : 503).json(body);
 });
 
 if (require.main === module) {
   initializeSecrets().then(() => {
     initDb(config.DATABASE_PATH).then(() => {
       startPoller(config.EVENT_POLL_INTERVAL_MS);
+        startHealthProbe();
       const server = app.listen(config.PORT, () => {
         logger.info(`Backend running on port ${config.PORT}`);
       });
