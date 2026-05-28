@@ -102,6 +102,8 @@ vacci-chain/
 └── docker-compose.yml
 ```
 
+See the [Folder Structure Guide](docs/folder-structure.md) for detailed descriptions of every directory and key file.
+
 ---
 
 ##  Tech Stack
