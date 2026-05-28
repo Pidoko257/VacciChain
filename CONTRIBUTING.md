@@ -4,6 +4,259 @@
 
 Thank you for your interest in contributing to VacciChain! This document provides guidelines and instructions for contributing to our project.
 
+## Table of Contents
+
+- [Local Setup](#local-setup)
+- [Branching Strategy](#branching-strategy)
+- [Branch Protection Rules](#branch-protection-rules)
+- [Pull Request Process](#pull-request-process)
+- [Commit Conventions](#commit-conventions)
+- [Code of Conduct](#code-of-conduct)
+- [Docker Base Image Pinning](#docker-base-image-pinning)
+
+## Local Setup
+
+### Prerequisites
+
+- Node.js 18+
+- Python 3.11+
+- Rust + `wasm32-unknown-unknown` target
+- Soroban CLI
+- Docker + Docker Compose
+- Freighter Wallet (for testing)
+
+### Installation Steps
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/dev-fatima-24/VacciChain.git
+   cd VacciChain
+   ```
+
+2. **Copy environment configuration**
+   ```bash
+   cp .env.example .env
+   # Fill in your Stellar keys and contract IDs
+   ```
+
+3. **Install backend dependencies**
+   ```bash
+   cd backend
+   npm install
+   cd ..
+   ```
+
+4. **Install frontend dependencies**
+   ```bash
+   cd frontend
+   npm install
+   cd ..
+   ```
+
+5. **Install Python service dependencies**
+   ```bash
+   cd python-service
+   pip install -r requirements.txt
+   cd ..
+   ```
+
+6. **Deploy smart contract (if needed)**
+   ```bash
+   cd contracts
+   make build
+   make deploy
+   cd ..
+   ```
+
+7. **Run locally**
+   ```bash
+   # Terminal 1: Backend
+   cd backend && npm run dev
+
+   # Terminal 2: Frontend
+   cd frontend && npm run dev
+
+   # Terminal 3: Python service
+   cd python-service && uvicorn main:app --port 8001
+   ```
+
+   Or use Docker Compose:
+   ```bash
+   docker compose up --build
+   ```
+
+## Branching Strategy
+
+We follow a **feature branch** workflow:
+
+- **main**: Production-ready code. Protected branch, requires PR review.
+- **Feature branches**: `feature/<description>` or `issues/<issue-numbers>`
+  - Example: `feature/openapi-spec` or `issues/77-79-82-84`
+  - Branch from `main`
+  - Prefix with issue numbers if addressing GitHub issues
+
+### Creating a Branch
+
+```bash
+git checkout main
+git pull origin main
+git checkout -b issues/77-79-82-84
+```
+
+## Branch Protection Rules
+
+The `main` branch is protected with the following rules enforced via GitHub branch protection settings:
+
+| Rule | Setting |
+|------|---------|
+| Direct pushes to `main` | **Blocked** — all changes must go through a PR |
+| Required approving reviews | **1** — at least one team member must approve |
+| Required status checks | **All CI jobs must pass** (`contract`, `backend`, `frontend`, `python`, `all-tests`) |
+| Branch deletable | **No** — `main` cannot be deleted |
+| Stale review dismissal | **Enabled** — new commits dismiss existing approvals |
+
+### What This Means for Contributors
+
+- You **cannot push directly** to `main`. Always create a feature branch and open a PR.
+- Your PR **will not be mergeable** until:
+  1. At least one reviewer has approved it.
+  2. All CI checks (tests, linting, security scans) have passed.
+- If you push new commits after receiving an approval, the approval is **automatically dismissed** and re-review is required.
+- The `main` branch **cannot be deleted** or force-pushed under any circumstances.
+
+### Configuring Branch Protection (Maintainers Only)
+
+To apply or update these rules, go to **GitHub → Settings → Branches → Branch protection rules** and configure the `main` branch with:
+
+- ✅ Require a pull request before merging
+  - ✅ Require approvals: **1**
+  - ✅ Dismiss stale pull request approvals when new commits are pushed
+- ✅ Require status checks to pass before merging
+  - ✅ Require branches to be up to date before merging
+  - Add required checks: `All tests passed` (the `all-tests` gate job in `ci.yml`)
+- ✅ Do not allow bypassing the above settings
+- ✅ Restrict deletions
+
+## Pull Request Process
+
+### Before Submitting
+
+1. **Ensure tests pass**
+   ```bash
+   # Backend
+   cd backend && npm test
+
+   # Contracts
+   cd contracts && cargo test
+
+   # Python service
+   cd python-service && pytest
+   ```
+
+2. **Run linters** (if configured)
+   ```bash
+   cd backend && npm run lint  # if available
+   ```
+
+3. **Update documentation** if your changes affect user-facing features
+
+4. **Commit your changes** using [Conventional Commits](#commit-conventions)
+
+### Submitting a PR
+
+1. **Push your branch**
+   ```bash
+   git push -u origin issues/77-79-82-84
+   ```
+
+2. **Create a pull request** on GitHub
+   - Use the PR template (auto-populated from `.github/pull_request_template.md`)
+   - Link related issues: `Closes #77, #79, #82, #84`
+   - Provide a clear description of changes
+   - Include testing notes
+
+3. **Address review feedback**
+   - Make requested changes
+   - Push updates to the same branch
+   - Respond to comments
+
+4. **Merge** once approved
+   - Use "Squash and merge" for single-commit PRs
+   - Use "Create a merge commit" for multi-commit PRs with logical separation
+
+## Commit Conventions
+
+We follow **Conventional Commits** for clear, semantic commit messages.
+
+### Format
+
+```
+<type>(<scope>): <subject>
+
+<body>
+
+<footer>
+```
+
+### Types
+
+- **feat**: A new feature
+- **fix**: A bug fix
+- **docs**: Documentation changes
+- **style**: Code style changes (formatting, missing semicolons, etc.)
+- **refactor**: Code refactoring without feature changes
+- **perf**: Performance improvements
+- **test**: Adding or updating tests
+- **chore**: Build, dependency, or tooling changes
+
+### Scope
+
+Optional. Indicates the area affected:
+- `backend`, `frontend`, `contracts`, `python-service`
+- `auth`, `vaccination`, `verify`, `analytics`
+- `#77`, `#79` (issue numbers)
+
+### Examples
+
+```bash
+git commit -m "feat(backend): add OpenAPI spec generation"
+git commit -m "fix(#77): resolve swagger endpoint routing"
+git commit -m "docs(#79): add contributor onboarding guide"
+git commit -m "test(contracts): add mint_vaccination tests"
+git commit -m "chore: update dependencies"
+```
+
+## Code of Conduct
+
+### Our Pledge
+
+We are committed to providing a welcoming and inspiring community for all. We pledge to:
+
+- Be respectful and inclusive
+- Welcome diverse perspectives and experiences
+- Focus on constructive feedback
+- Respect confidentiality and privacy
+
+### Expected Behavior
+
+- Use welcoming and inclusive language
+- Be respectful of differing opinions and experiences
+- Accept constructive criticism gracefully
+- Focus on what is best for the community
+- Show empathy towards other community members
+
+### Unacceptable Behavior
+
+- Harassment, discrimination, or intimidation
+- Offensive comments related to personal characteristics
+- Deliberate intimidation or threats
+- Unwelcome sexual attention or advances
+- Trolling, insulting, or derogatory comments
+
+### Reporting Issues
+
+If you witness or experience unacceptable behavior, please report it to the maintainers at [contact email]. All reports will be reviewed and investigated.
+
 ## Docker Base Image Pinning
 
 ### Why We Pin Docker Images
@@ -99,14 +352,6 @@ If you need to manually update a base image version:
 
 **Problem**: Renovate is not creating PRs
 - **Solution**: Check `renovate.json` configuration and ensure Renovate app is installed on the repository
-
-## General Contributing Guidelines
-
-- Follow the existing code style and conventions
-- Write clear commit messages
-- Test your changes before submitting a PR
-- Update tests and documentation as needed
-- Be respectful and inclusive in all interactions
 
 ## Questions?
 

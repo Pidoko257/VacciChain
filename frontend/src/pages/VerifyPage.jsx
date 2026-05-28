@@ -19,7 +19,7 @@ export default function VerifyPage() {
     setLoading(true);
     setResult(null);
     try {
-      const res = await fetch(`/verify/${address.trim()}`);
+      const res = await fetch(`/v1/verify/${address.trim()}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setResult(data);
@@ -58,7 +58,7 @@ export default function VerifyPage() {
         <input
           id="wallet-input"
           style={styles.input}
-          placeholder="Enter Stellar wallet address (G...)"
+          placeholder={t('verify.placeholder')}
           value={wallet}
           onChange={(e) => setWallet(e.target.value)}
           aria-label="Stellar wallet address to verify"
