@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useFreighter';
 import { useVaccination } from '../hooks/useVaccination';
 import ConfirmMintDialog from '../components/ConfirmMintDialog';
 import CopyButton from '../components/CopyButton';
+import RoleBadge from '../components/RoleBadge';
 
 const styles = {
   page: { maxWidth: 500, width: '100%', margin: '2rem auto', padding: '0 1rem', boxSizing: 'border-box' },
@@ -110,7 +111,12 @@ export default function IssuerDashboard() {
 
   return (
     <div style={styles.page}>
-      <h2 style={{ marginBottom: '1.5rem', color: 'var(--text)' }}>Issue Vaccination NFT</h2>
+      <div style={{ borderLeft: '4px solid #22c55e', paddingLeft: '0.75rem', marginBottom: '1.5rem' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.75rem' }}>
+          <h2 style={{ color: '#e2e8f0', margin: 0 }}>Issue Vaccination NFT</h2>
+          <RoleBadge role="issuer" />
+        </div>
+      </div>
       <form style={styles.form} onSubmit={handleSubmit} role="form">
         {[
           { key: 'patient_address', label: 'Patient Stellar Address', placeholder: 'G...' },

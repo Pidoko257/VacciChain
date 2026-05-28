@@ -1,7 +1,7 @@
 const express = require('express');
 const StellarSdk = require('@stellar/stellar-sdk');
 const { validateStellarPublicKey } = require('../middleware/wallet');
-const { simulateContract, verifyVaccination } = require('../stellar/soroban');
+const { simulateContract, verifyVaccination, SorobanTimeoutError, sendRpcTimeout } = require('../stellar/soroban');
 const { resolveContractErrorMessage } = require('../stellar/contractErrors');
 const { verifyLimiter, verifierKeyLimiter } = require('../middleware/rateLimiter');
 const verifierApiKey = require('../middleware/verifierApiKey');
@@ -82,7 +82,7 @@ function adaptiveLimiter(req, res, next) {
 // GET /verify/:wallet — JWT or verifier API key
 router.get(
   '/:wallet',
-  validateStellarPublicKey('params', 'wallet', 'wallet'),
+  validateStellarPublicKey('params', 'wallet'),
   jwtOrApiKey,
   adaptiveLimiter,
   async (req, res) => {
