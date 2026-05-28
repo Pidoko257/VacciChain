@@ -1,7 +1,7 @@
 const express = require('express');
 const StellarSdk = require('@stellar/stellar-sdk');
 const { validateStellarPublicKey } = require('../middleware/wallet');
-const { simulateContract } = require('../stellar/soroban');
+const { simulateContract, verifyVaccination } = require('../stellar/soroban');
 const { resolveContractErrorMessage } = require('../stellar/contractErrors');
 const { verifyLimiter, verifierKeyLimiter } = require('../middleware/rateLimiter');
 const verifierApiKey = require('../middleware/verifierApiKey');
@@ -102,9 +102,7 @@ router.get(
     }
 
     try {
-      const args = [StellarSdk.Address.fromString(wallet).toScVal()];
-      const result = await simulateContract('verify_vaccination', args);
-      const [vaccinated, records] = StellarSdk.scValToNative(result);
+      const { vaccinated, records } = await verifyVaccination(wallet);
 
       verifyCache.set(wallet, {
         vaccinated,
