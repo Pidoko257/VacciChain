@@ -10,6 +10,7 @@ import { AuthProvider } from './hooks/useFreighter';
 import { useDarkMode } from './hooks/useDarkMode';
 import FreighterBanner from './components/FreighterBanner';
 import DemoBanner from './components/DemoBanner';
+import DarkModeToggle from './components/DarkModeToggle';
 
 function NavLink({ to, children }) {
   const { pathname } = useLocation();
@@ -36,6 +37,7 @@ export default function App() {
         <NavLink to="/admin">Admin</NavLink>
         <NavLink to="/apply">Apply as Issuer</NavLink>
         <NavLink to="/analytics">Analytics</NavLink>
+        <DarkModeToggle dark={dark} onToggle={() => setDark(d => !d)} />
       </nav>
       <FreighterBanner />
       <Routes>
