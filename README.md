@@ -308,6 +308,7 @@ cd python-service && pytest
 - SEP-10 challenges expire after 5 minutes and are single-use
 - JWTs are short-lived (1 hour) and scoped by role (`patient` | `issuer`)
 - All contract events are emitted and indexable for audit trails
+- HTTP security headers (CSP, HSTS, X-Frame-Options, etc.) are documented in [docs/security-headers.md](docs/security-headers.md)
 
 ---
 
