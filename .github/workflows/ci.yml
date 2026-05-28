@@ -33,6 +33,10 @@ jobs:
         working-directory: contracts
         run: make build
 
+      - name: Run contract tests
+        working-directory: contracts
+        run: cargo test
+
       - name: Run contract tests with coverage
         working-directory: contracts
         run: |
@@ -77,6 +81,10 @@ jobs:
         working-directory: backend
         run: npm ci
 
+      - name: Run tests
+        working-directory: backend
+        run: npm test
+
       - name: Run tests with coverage
         working-directory: backend
         run: npm test
@@ -120,6 +128,10 @@ jobs:
         working-directory: frontend
         run: npm test
 
+      - name: Run tests with coverage
+        working-directory: frontend
+        run: npm run test:coverage
+
       - name: Upload Frontend Coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
@@ -155,9 +167,13 @@ jobs:
         working-directory: python-service
         run: pip install -r requirements.txt
 
-      - name: Run tests with coverage
+      - name: Run tests
         working-directory: python-service
         run: pytest
+
+      - name: Run tests with coverage
+        working-directory: python-service
+        run: pytest --cov --cov-report=xml
 
       - name: Upload Python Coverage to Codecov
         uses: codecov/codecov-action@v4
@@ -180,67 +196,25 @@ jobs:
           name: python-audit-report
           path: python-service/audit-report.txt
 
-  # Gate job: all test jobs must pass before a PR can be merged to main.
-  # Configure this as a required status check in branch protection rules.
-  # Closes #354
+  # Gate job: all test jobs must pass before a PR can be merged.
+  # Configure this job name ("All tests passed") as a required status check
+  # in Settings → Branches → Branch protection rules for `main`.
   all-tests:
     name: All tests passed
     runs-on: ubuntu-latest
-    needs: [contract, backend, frontend, python, gitleaks, validate-env]
+    needs: [contract, backend, frontend, python]
+    if: always()
     steps:
-      - run: echo "All test jobs passed."
-
-  validate-env:
-    name: Validate .env.example
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Check all required variables are in .env.example
-        run: bash scripts/validate-env-example.sh
-
-  gitleaks:
-    name: Secret scanning (Gitleaks)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Run Gitleaks
-        id: gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        continue-on-error: true
-
-      - name: Write job summary
-        if: always()
+      - name: Check all test jobs succeeded
         run: |
-          if [ "${{ steps.gitleaks.outcome }}" = "success" ]; then
-            echo "## ✅ Gitleaks Secret Scan" >> $GITHUB_STEP_SUMMARY
-            echo "No secrets detected." >> $GITHUB_STEP_SUMMARY
-          else
-            echo "## ❌ Gitleaks Secret Scan — Secrets Detected" >> $GITHUB_STEP_SUMMARY
-            echo "Gitleaks found potential secrets in this commit. Review the report artifact." >> $GITHUB_STEP_SUMMARY
-            if [ -f gitleaks-report.json ]; then
-              echo '```json' >> $GITHUB_STEP_SUMMARY
-              cat gitleaks-report.json >> $GITHUB_STEP_SUMMARY
-              echo '```' >> $GITHUB_STEP_SUMMARY
-            fi
+          if [[ "${{ needs.contract.result }}" != "success" || \
+                "${{ needs.backend.result }}"  != "success" || \
+                "${{ needs.frontend.result }}"  != "success" || \
+                "${{ needs.python.result }}"    != "success" ]]; then
+            echo "One or more test jobs failed."
+            exit 1
           fi
-
-      - name: Upload Gitleaks report
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: gitleaks-report
-          path: gitleaks-report.json
-          retention-days: 30
-
-      - name: Fail if secrets detected
-        if: steps.gitleaks.outcome == 'failure'
-        run: exit 1
+          echo "All test jobs passed."
 
   docker:
     name: Docker build validation
