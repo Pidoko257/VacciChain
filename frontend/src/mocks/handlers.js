@@ -1,4 +1,4 @@
-import { http, HttpResponse } from 'msw';
+export const handlers = []
 
 export const handlers = [
   // Authentication
