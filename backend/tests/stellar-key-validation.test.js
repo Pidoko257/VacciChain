@@ -1,34 +1,36 @@
 'use strict';
 
-// Unit tests for the Stellar public key validation regex used in
-// src/middleware/wallet.js — covers all acceptance criteria.
+const { isValidStellarPublicKey } = require('../src/middleware/wallet');
 
-const STELLAR_PUBLIC_KEY_REGEX = /^G[A-Z2-7]{55}$/;
-
-const isValid = (key) => STELLAR_PUBLIC_KEY_REGEX.test(key);
-
-describe('Stellar public key validation', () => {
-  it('returns true for a valid 56-char G-prefixed base32 key', () => {
-    // 'G' + 55 valid base32 uppercase chars
-    expect(isValid('G' + 'A'.repeat(55))).toBe(true);
+describe('isValidStellarPublicKey', () => {
+  it('returns true for a valid Stellar public key', () => {
+    const { Keypair } = require('@stellar/stellar-sdk');
+    expect(isValidStellarPublicKey(Keypair.random().publicKey())).toBe(true);
   });
 
-  it('returns false for a key with wrong prefix (not G)', () => {
-    expect(isValid('S' + 'A'.repeat(55))).toBe(false);
-    expect(isValid('A' + 'A'.repeat(55))).toBe(false);
+  it('returns false for wrong prefix (not G)', () => {
+    expect(isValidStellarPublicKey('S' + 'A'.repeat(55))).toBe(false);
   });
 
-  it('returns false for a key shorter than 56 chars', () => {
-    expect(isValid('G' + 'A'.repeat(54))).toBe(false);
+  it('returns false for key shorter than 56 chars', () => {
+    expect(isValidStellarPublicKey('G' + 'A'.repeat(54))).toBe(false);
   });
 
-  it('returns false for a key longer than 56 chars', () => {
-    expect(isValid('G' + 'A'.repeat(56))).toBe(false);
+  it('returns false for key longer than 56 chars', () => {
+    expect(isValidStellarPublicKey('G' + 'A'.repeat(56))).toBe(false);
   });
 
-  it('returns false for a key with invalid base32 characters', () => {
-    // base32 alphabet is A-Z and 2-7; '0', '1', '8', '9' are invalid
-    expect(isValid('G' + '0'.repeat(55))).toBe(false);
-    expect(isValid('G' + 'A'.repeat(54) + '!')).toBe(false);
+  it('returns false for invalid base32 characters', () => {
+    expect(isValidStellarPublicKey('G' + '0'.repeat(55))).toBe(false);
+  });
+
+  it('returns false for a non-string value', () => {
+    expect(isValidStellarPublicKey(null)).toBe(false);
+    expect(isValidStellarPublicKey(123)).toBe(false);
+  });
+
+  it('returns false for correct format but invalid checksum', () => {
+    // G + 55 uppercase A's passes the regex but fails Keypair checksum
+    expect(isValidStellarPublicKey('G' + 'A'.repeat(55))).toBe(false);
   });
 });
