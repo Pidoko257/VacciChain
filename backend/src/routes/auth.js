@@ -80,12 +80,12 @@ router.post('/verify', validate(verifySchema), bruteForceGuard, (req, res) => {
     const signingKey = getSigningKey();
 
     const token = jwt.sign(
-      { sub: publicKey, wallet: publicKey, publicKey, role },
       {
         sub: publicKey,
         iss: process.env.HOME_DOMAIN || 'localhost',
         iat: now,
         wallet: publicKey,
+        publicKey,
         role,
       },
       signingKey.secret,
