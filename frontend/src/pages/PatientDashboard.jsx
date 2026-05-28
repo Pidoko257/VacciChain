@@ -5,7 +5,7 @@ import NFTCard from '../components/NFTCard';
 
 const styles = {
   page: { maxWidth: 700, margin: '2rem auto', padding: '0 1rem' },
-  btn: { padding: '0.6rem 1.5rem', background: '#0ea5e9', color: '#fff', border: 'none', borderRadius: 8 },
+  btn: { padding: '0.6rem 1.5rem', background: '#0369a1', color: '#fff', border: 'none', borderRadius: 8 },
 };
 
 export default function PatientDashboard() {
@@ -33,7 +33,7 @@ export default function PatientDashboard() {
   return (
     <div style={styles.page}>
       <h2 style={{ marginBottom: '1.5rem', color: '#e2e8f0' }}>My Vaccination Records</h2>
-      <p style={{ color: '#64748b', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
+      <p style={{ color: '#94a3b8', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
         Wallet: {publicKey}
       </p>
       {loading && <p style={{ color: '#94a3b8' }}>Loading…</p>}

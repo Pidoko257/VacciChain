@@ -6,7 +6,7 @@ const styles = {
   page: { maxWidth: 500, margin: '2rem auto', padding: '0 1rem' },
   form: { display: 'flex', flexDirection: 'column', gap: '1rem' },
   input: { padding: '0.6rem 0.75rem', background: '#1e293b', border: '1px solid #334155', borderRadius: 8, color: '#e2e8f0', fontSize: '1rem' },
-  btn: { padding: '0.7rem', background: '#0ea5e9', color: '#fff', border: 'none', borderRadius: 8, fontSize: '1rem' },
+  btn: { padding: '0.7rem', background: '#0369a1', color: '#fff', border: 'none', borderRadius: 8, fontSize: '1rem' },
   label: { color: '#94a3b8', fontSize: '0.85rem', marginBottom: '0.25rem' },
 };
 

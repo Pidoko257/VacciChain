@@ -5,7 +5,7 @@ import NFTCard from '../components/NFTCard';
 const styles = {
   page: { maxWidth: 600, margin: '2rem auto', padding: '0 1rem' },
   input: { padding: '0.6rem 0.75rem', background: '#1e293b', border: '1px solid #334155', borderRadius: 8, color: '#e2e8f0', fontSize: '1rem', width: '100%' },
-  btn: { padding: '0.6rem 1.5rem', background: '#0ea5e9', color: '#fff', border: 'none', borderRadius: 8, fontSize: '1rem', marginTop: '0.75rem' },
+  btn: { padding: '0.6rem 1.5rem', background: '#0369a1', color: '#fff', border: 'none', borderRadius: 8, fontSize: '1rem', marginTop: '0.75rem' },
 };
 
 export default function VerifyPage() {
