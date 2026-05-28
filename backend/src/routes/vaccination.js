@@ -4,7 +4,7 @@ const StellarSdk = require('@stellar/stellar-sdk');
 const authMiddleware = require('../middleware/auth');
 const issuerMiddleware = require('../middleware/issuer');
 const { validateStellarPublicKey } = require('../middleware/wallet');
-const { invokeContract, simulateContract } = require('../stellar/soroban');
+const { invokeContract, simulateContract, mintVaccination } = require('../stellar/soroban');
 const { resolveContractErrorMessage } = require('../stellar/contractErrors');
 const { audit } = require('../middleware/auditLog');
 const validate = require('../middleware/validate');
@@ -106,21 +106,13 @@ router.post(
   }
 
   try {
-    const toOptU32 = (v) => v != null
-      ? StellarSdk.xdr.ScVal.scvVec([StellarSdk.xdr.ScVal.scvU32(v)])
-      : StellarSdk.xdr.ScVal.scvVoid();
-
-    const args = [
-      StellarSdk.Address.fromString(patient_address).toScVal(),
-      StellarSdk.xdr.ScVal.scvString(vaccine_name),
-      StellarSdk.xdr.ScVal.scvString(date_administered),
-      StellarSdk.Address.fromString(req.user.publicKey).toScVal(),
-      toOptU32(dose_number),
-      toOptU32(dose_series),
-    ];
-
-    const result = await invokeContract(process.env.ISSUER_SECRET_KEY, 'mint_vaccination', args);
-    const tokenId = StellarSdk.scValToNative(result.returnValue);
+    const result = await mintVaccination(
+      patient_address,
+      vaccine_name,
+      date_administered,
+      process.env.ISSUER_SECRET_KEY,
+      { doseNumber: dose_number, doseSeries: dose_series }
+    );
     const timestamp = new Date().toISOString();
 
     audit({
@@ -128,12 +120,12 @@ router.post(
       action: 'vaccination.issue',
       target: patient_address,
       result: 'success',
-      meta: { token_id: tokenId, vaccine_name, date_administered, dose_number, dose_series },
+      meta: { token_id: result.tokenId, vaccine_name, date_administered, dose_number, dose_series },
     });
 
     res.json({
       success: true,
-      tokenId,
+      tokenId: result.tokenId,
       transactionHash: result.hash,
       ledger: result.ledger,
       timestamp,
