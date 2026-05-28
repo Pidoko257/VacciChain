@@ -29,6 +29,10 @@
     "setupFiles": [
       "./tests/setup.js"
     ],
+    "roots": [
+      "<rootDir>/tests",
+      "<rootDir>/../tests"
+    ],
     "moduleNameMapper": {
       "^../secrets$": "<rootDir>/tests/__mocks__/secrets.js",
       "^./secrets$": "<rootDir>/tests/__mocks__/secrets.js"
@@ -37,6 +41,7 @@
   "devDependencies": {
     "c8": "11.0.0",
     "@faker-js/faker": "8.4.1",
+    "fast-check": "3.23.2",
     "jest": "29.7.0",
     "nodemon": "3.1.14",
     "supertest": "6.3.4"
