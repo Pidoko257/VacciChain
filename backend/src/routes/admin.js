@@ -2,10 +2,13 @@ const express = require('express');
 const crypto = require('crypto');
 const StellarSdk = require('@stellar/stellar-sdk');
 const authMiddleware = require('../middleware/auth');
+const { adminAuthMiddleware } = require('../middleware/auth');
 const { queryAuditLog, audit } = require('../middleware/auditLog');
 const { insertApiKey, listApiKeys, revokeApiKey } = require('../indexer/db');
 const { rotateKey, reloadFromEnv } = require('../jwtKeys');
 const { approveProposal, getProposal } = require('../middleware/multiSig');
+const { addIssuer, revokeIssuer } = require('../stellar/soroban');
+const { isAuthorizedIssuer, invalidateCache } = require('../stellar/issuerCache');
 
 const router = express.Router();
 
@@ -32,18 +35,14 @@ function isValidStellarAddress(address) {
  * Body: { address: string }
  * Authorizes a new issuer on-chain via add_issuer contract call.
  */
-router.post('/issuers', authMiddleware, adminOnly, async (req, res) => {
+router.post('/issuers', adminAuthMiddleware, adminOnly, async (req, res) => {
   const { address } = req.body;
   if (!address || !isValidStellarAddress(address)) {
     return res.status(400).json({ error: 'Valid Stellar address required' });
   }
 
   try {
-    const result = await invokeContract(
-      config.ADMIN_SECRET_KEY,
-      'add_issuer',
-      [StellarSdk.xdr.ScVal.scvAddress(StellarSdk.Address.fromString(address).toScAddress())]
-    );
+    const result = await addIssuer(address);
     audit({ actor: req.user.wallet, action: 'admin.add_issuer', result: 'success', meta: { address } });
     res.status(201).json({ address, authorized: true, hash: result.hash });
   } catch (err) {
@@ -53,25 +52,27 @@ router.post('/issuers', authMiddleware, adminOnly, async (req, res) => {
 });
 
 /**
- * DELETE /admin/issuers/:address
+ * DELETE /admin/issuers/:wallet
  * Revokes an issuer on-chain via revoke_issuer contract call.
  */
-router.delete('/issuers/:address', authMiddleware, adminOnly, async (req, res) => {
-  const { address } = req.params;
-  if (!isValidStellarAddress(address)) {
+router.delete('/issuers/:wallet', adminAuthMiddleware, adminOnly, async (req, res) => {
+  const { wallet } = req.params;
+  if (!isValidStellarAddress(wallet)) {
     return res.status(400).json({ error: 'Invalid Stellar address' });
   }
 
   try {
-    const result = await invokeContract(
-      config.ADMIN_SECRET_KEY,
-      'revoke_issuer',
-      [StellarSdk.xdr.ScVal.scvAddress(StellarSdk.Address.fromString(address).toScAddress())]
-    );
-    audit({ actor: req.user.wallet, action: 'admin.revoke_issuer', result: 'success', meta: { address } });
-    res.json({ address, authorized: false, hash: result.hash });
+    const authorized = await isAuthorizedIssuer(wallet);
+    if (!authorized) {
+      return res.status(404).json({ error: 'Issuer not found' });
+    }
+
+    const result = await revokeIssuer(wallet);
+    invalidateCache(wallet);
+    audit({ actor: req.user.wallet, action: 'admin.revoke_issuer', target: wallet, result: 'success', meta: { hash: result.hash } });
+    res.json({ wallet, authorized: false, hash: result.hash });
   } catch (err) {
-    audit({ actor: req.user.wallet, action: 'admin.revoke_issuer', result: 'failure', meta: { address, error: err.message } });
+    audit({ actor: req.user.wallet, action: 'admin.revoke_issuer', target: wallet, result: 'failure', meta: { error: err.message } });
     res.status(500).json({ error: err.message });
   }
 });
@@ -80,7 +81,7 @@ router.delete('/issuers/:address', authMiddleware, adminOnly, async (req, res) =
  * GET /admin/issuers
  * Lists all authorized issuers by reading contract state.
  */
-router.get('/issuers', authMiddleware, adminOnly, async (req, res) => {
+router.get('/issuers', adminAuthMiddleware, adminOnly, async (req, res) => {
   try {
     const retval = await simulateContract('list_issuers', []);
     // Contract returns a Vec of addresses; parse into an array of strings
@@ -99,7 +100,7 @@ router.get('/issuers', authMiddleware, adminOnly, async (req, res) => {
 /**
  * GET /admin/audit
  */
-router.get('/audit', authMiddleware, adminOnly, (req, res) => {
+router.get('/audit', adminAuthMiddleware, adminOnly, (req, res) => {
   const { actor, from, to } = req.query;
   const limit  = Math.min(parseInt(req.query.limit  || '100', 10), 1000);
   const offset = Math.max(parseInt(req.query.offset || '0',   10), 0);
@@ -118,7 +119,7 @@ router.get('/audit', authMiddleware, adminOnly, (req, res) => {
 
 // ── API key management ────────────────────────────────────────────────────────
 
-router.post('/api-keys', authMiddleware, adminOnly, (req, res) => {
+router.post('/api-keys', adminAuthMiddleware, adminOnly, (req, res) => {
   const { label } = req.body;
   if (!label || typeof label !== 'string' || !label.trim()) {
     return res.status(400).json({ error: 'label is required' });
@@ -133,11 +134,11 @@ router.post('/api-keys', authMiddleware, adminOnly, (req, res) => {
   res.status(201).json({ id, label: label.trim(), key: rawKey });
 });
 
-router.get('/api-keys', authMiddleware, adminOnly, (_req, res) => {
+router.get('/api-keys', adminAuthMiddleware, adminOnly, (_req, res) => {
   res.json(listApiKeys());
 });
 
-router.delete('/api-keys/:id', authMiddleware, adminOnly, (req, res) => {
+router.delete('/api-keys/:id', adminAuthMiddleware, adminOnly, (req, res) => {
   revokeApiKey(req.params.id);
   res.json({ revoked: true });
 });
@@ -159,7 +160,7 @@ router.delete('/api-keys/:id', authMiddleware, adminOnly, (req, res) => {
  *
  * Requires admin role.
  */
-router.post('/jwt/rotate', authMiddleware, adminOnly, (req, res) => {
+router.post('/jwt/rotate', adminAuthMiddleware, adminOnly, (req, res) => {
   const { new_secret, new_kid, reload_from_env } = req.body;
 
   try {
@@ -190,7 +191,7 @@ router.post('/jwt/rotate', authMiddleware, adminOnly, (req, res) => {
  * "approved" and the initiator can re-submit the original request with
  * the proposal_id to execute it.
  */
-router.post('/multisig/approve', authMiddleware, adminOnly, (req, res) => {
+router.post('/multisig/approve', adminAuthMiddleware, adminOnly, (req, res) => {
   const { proposal_id } = req.body;
   if (!proposal_id) {
     return res.status(400).json({ error: 'proposal_id is required' });
@@ -218,7 +219,7 @@ router.post('/multisig/approve', authMiddleware, adminOnly, (req, res) => {
  * GET /admin/multisig/proposals/:id
  * Returns the current state of a proposal (approval count, status, expiry).
  */
-router.get('/multisig/proposals/:id', authMiddleware, adminOnly, (req, res) => {
+router.get('/multisig/proposals/:id', adminAuthMiddleware, adminOnly, (req, res) => {
   const proposal = getProposal(req.params.id);
   if (!proposal) {
     return res.status(404).json({ error: 'Proposal not found or expired' });
