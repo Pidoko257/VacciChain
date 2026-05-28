@@ -18,7 +18,7 @@ export default function App() {
   return (
     <AuthProvider>
       <DemoBanner/>
-      <NavBar />
+      <NavBar dark={dark} onToggleDark={() => setDark((d) => !d)} />
       <FreighterBanner />
       <Routes>
         <Route path="/" element={<Landing />} />

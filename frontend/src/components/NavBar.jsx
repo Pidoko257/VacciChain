@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import DarkModeToggle from './DarkModeToggle';
 
 const NAV_LINKS = [
   { to: '/', label: 'Home' },
@@ -11,7 +12,7 @@ const NAV_LINKS = [
   { to: '/analytics', label: 'Analytics' },
 ];
 
-export default function NavBar() {
+export default function NavBar({ dark, onToggleDark }) {
   const { pathname } = useLocation();
   const [open, setOpen] = useState(false);
 
@@ -29,8 +30,8 @@ export default function NavBar() {
   useEffect(() => { close(); }, [pathname, close]);
 
   return (
-    <nav aria-label="Main navigation" style={{ padding: '1rem 2rem', background: '#1e293b', display: 'flex', flexWrap: 'wrap', gap: '1.5rem', alignItems: 'center', position: 'relative' }}>
-      <strong style={{ color: '#38bdf8', fontSize: '1.2rem', flex: 1 }}>💉 VacciChain</strong>
+    <nav aria-label="Main navigation" style={{ padding: '1rem 2rem', background: 'var(--nav-bg)', display: 'flex', flexWrap: 'wrap', gap: '1.5rem', alignItems: 'center', position: 'relative' }}>
+      <strong style={{ color: 'var(--accent)', fontSize: '1.2rem', flex: 1 }}>💉 VacciChain</strong>
 
       {/* Hamburger button — visible only below 640px */}
       <button
@@ -68,6 +69,7 @@ export default function NavBar() {
             {label}
           </Link>
         ))}
+        <DarkModeToggle dark={dark} onToggle={onToggleDark} />
       </div>
 
       <style>{`
