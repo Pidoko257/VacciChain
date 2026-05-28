@@ -7,6 +7,7 @@ const {
   STELLAR_NETWORK_PASSPHRASE: NETWORK_PASSPHRASE,
   VACCINATIONS_CONTRACT_ID: CONTRACT_ID,
   SOROBAN_RPC_MAX_RETRIES,
+  SOROBAN_RPC_TIMEOUT_MS,
 } = config;
 
 class SorobanError extends Error {
@@ -38,6 +39,36 @@ class SorobanSimulationError extends SorobanError {
   }
 }
 
+class SorobanTimeoutError extends SorobanError {
+  constructor(context, elapsedMs) {
+    super(`RPC timeout after ${elapsedMs}ms (context: ${context})`);
+    this.name = 'SorobanTimeoutError';
+    this.context = context;
+    this.elapsedMs = elapsedMs;
+  }
+}
+
+/**
+ * Race an async fn against a timeout. Cleans up the timer on resolution.
+ * Throws SorobanTimeoutError if the timeout fires first.
+ */
+async function withTimeout(fn, context) {
+  const start = Date.now();
+  let timer;
+  const timeoutPromise = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      const elapsed = Date.now() - start;
+      logger.warn('Soroban RPC timeout', { context, rpcUrl: SOROBAN_RPC_URL, elapsedMs: elapsed });
+      reject(new SorobanTimeoutError(context, elapsed));
+    }, SOROBAN_RPC_TIMEOUT_MS);
+  });
+  try {
+    return await Promise.race([fn(), timeoutPromise]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // Fee in stroops (1 XLM = 10_000_000 stroops). Minimum is 100.
 const TX_FEE = String(process.env.SOROBAN_FEE || 100);
 // Inclusion tip in stroops for priority during congestion (0 = no tip).
@@ -66,7 +97,7 @@ async function withRetry(fn, context = '') {
         });
         await new Promise((resolve) => setTimeout(resolve, backoff));
       }
-      return await fn();
+      return await withTimeout(fn, context);
     } catch (error) {
       lastError = error;
 
@@ -248,6 +279,13 @@ async function simulateContract(method, args) {
   return sim.result?.retval;
 }
 
+/**
+ * Send a 503 RPC timeout response. Use in route catch blocks when err is SorobanTimeoutError.
+ */
+function sendRpcTimeout(res) {
+  return res.status(503).json({ error: 'RPC timeout', retryAfter: 5 });
+}
+
 module.exports = {
   getRpcServer,
   invokeContract,
@@ -256,10 +294,12 @@ module.exports = {
   verifyVaccination,
   addIssuer,
   revokeIssuer,
+  sendRpcTimeout,
   SorobanError,
   SorobanRpcError,
   SorobanTransactionError,
   SorobanSimulationError,
+  SorobanTimeoutError,
 };
 
 /**
