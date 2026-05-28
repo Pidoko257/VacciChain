@@ -4,7 +4,7 @@ const StellarSdk = require('@stellar/stellar-sdk');
 const authMiddleware = require('../middleware/auth');
 const issuerMiddleware = require('../middleware/issuer');
 const { validateStellarPublicKey } = require('../middleware/wallet');
-const { invokeContract, simulateContract, mintVaccination } = require('../stellar/soroban');
+const { invokeContract, simulateContract, mintVaccination, sendRpcTimeout, SorobanTimeoutError } = require('../stellar/soroban');
 const { resolveContractErrorMessage } = require('../stellar/contractErrors');
 const { audit } = require('../middleware/auditLog');
 const validate = require('../middleware/validate');
@@ -131,6 +131,7 @@ router.post(
       timestamp,
     });
   } catch (err) {
+    if (err instanceof SorobanTimeoutError) return sendRpcTimeout(res);
     const errorMessage = resolveContractErrorMessage(err);
     audit({
       actor: req.user.publicKey,
@@ -214,6 +215,7 @@ router.post(
 
       res.json({ success: true, token_id });
     } catch (err) {
+      if (err instanceof SorobanTimeoutError) return sendRpcTimeout(res);
       const errorMessage = resolveContractErrorMessage(err);
       audit({
         actor: req.user.publicKey,
@@ -293,6 +295,7 @@ router.get('/:wallet', authMiddleware, validateStellarPublicKey('params', 'walle
 
     res.json({ data, total, page: rawPage, limit: rawLimit });
   } catch (err) {
+    if (err instanceof SorobanTimeoutError) return sendRpcTimeout(res);
     const errorMessage = resolveContractErrorMessage(err);
     res.status(500).json({ error: errorMessage });
   }
