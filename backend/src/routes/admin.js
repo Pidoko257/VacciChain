@@ -7,6 +7,7 @@ const { queryAuditLog, audit } = require('../middleware/auditLog');
 const { insertApiKey, listApiKeys, revokeApiKey } = require('../indexer/db');
 const { rotateKey, reloadFromEnv } = require('../jwtKeys');
 const { approveProposal, getProposal } = require('../middleware/multiSig');
+const { isValidStellarPublicKey } = require('../middleware/wallet');
 const { addIssuer, revokeIssuer } = require('../stellar/soroban');
 const { isAuthorizedIssuer, invalidateCache } = require('../stellar/issuerCache');
 
@@ -19,14 +20,7 @@ function adminOnly(req, res, next) {
   next();
 }
 
-function isValidStellarAddress(address) {
-  try {
-    StellarSdk.Keypair.fromPublicKey(address);
-    return true;
-  } catch {
-    return false;
-  }
-}
+
 
 // ── Issuer management ─────────────────────────────────────────────────────────
 
@@ -37,8 +31,8 @@ function isValidStellarAddress(address) {
  */
 router.post('/issuers', adminAuthMiddleware, adminOnly, async (req, res) => {
   const { address } = req.body;
-  if (!address || !isValidStellarAddress(address)) {
-    return res.status(400).json({ error: 'Valid Stellar address required' });
+  if (!address || !isValidStellarPublicKey(address)) {
+    return res.status(400).json({ error: 'Invalid Stellar public key' });
   }
 
   try {
@@ -57,8 +51,8 @@ router.post('/issuers', adminAuthMiddleware, adminOnly, async (req, res) => {
  */
 router.delete('/issuers/:wallet', adminAuthMiddleware, adminOnly, async (req, res) => {
   const { wallet } = req.params;
-  if (!isValidStellarAddress(wallet)) {
-    return res.status(400).json({ error: 'Invalid Stellar address' });
+  if (!isValidStellarPublicKey(wallet)) {
+    return res.status(400).json({ error: 'Invalid Stellar public key' });
   }
 
   try {

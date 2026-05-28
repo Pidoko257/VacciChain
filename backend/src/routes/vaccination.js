@@ -13,14 +13,7 @@ const { hasConsented } = require('../indexer/db');
 const router = express.Router();
 
 const issueSchema = z.object({
-  patient_address: z.string().refine((val) => {
-    try {
-      StellarSdk.Address.fromString(val);
-      return true;
-    } catch {
-      return false;
-    }
-  }, { message: 'Invalid Stellar address' }),
+  patient_address: z.string().min(1, 'patient_address is required'),
   vaccine_name: z.string().min(1, 'vaccine_name is required'),
   date_administered: z.string().refine((val) => !isNaN(Date.parse(val)), {
     message: 'Invalid date format',
@@ -96,6 +89,7 @@ router.post(
   '/issue',
   authMiddleware,
   issuerMiddleware,
+  validateStellarPublicKey('body', 'patient_address'),
   validate(issueSchema),
   async (req, res) => {
   const { patient_address, vaccine_name, date_administered, dose_number, dose_series } = req.body;
@@ -271,7 +265,7 @@ router.post(
  *               $ref: '#/components/schemas/Error'
  */
 // GET /vaccination/:wallet — fetch paginated records for a wallet
-router.get('/:wallet', authMiddleware, validateStellarPublicKey('params', 'wallet', 'wallet'), async (req, res) => {
+router.get('/:wallet', authMiddleware, validateStellarPublicKey('params', 'wallet'), async (req, res) => {
   const { wallet } = req.params;
 
   const rawPage = req.query.page !== undefined ? Number(req.query.page) : 1;

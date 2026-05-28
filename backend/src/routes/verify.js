@@ -82,7 +82,7 @@ function adaptiveLimiter(req, res, next) {
 // GET /verify/:wallet — JWT or verifier API key
 router.get(
   '/:wallet',
-  validateStellarPublicKey('params', 'wallet', 'wallet'),
+  validateStellarPublicKey('params', 'wallet'),
   jwtOrApiKey,
   adaptiveLimiter,
   async (req, res) => {
