@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useFreighter';
 import { useVaccination } from '../hooks/useVaccination';
 import { useConsent } from '../hooks/useConsent';
 import NFTCard from '../components/NFTCard';
+import RoleBadge from '../components/RoleBadge';
 import NFTCardSkeleton from '../components/NFTCardSkeleton';
 import RecordDetailModal from '../components/RecordDetailModal';
 import CopyButton from '../components/CopyButton';
@@ -14,6 +15,7 @@ const PAGE_LIMIT = 10;
 
 const styles = {
   page: { maxWidth: 700, width: '100%', margin: '2rem auto', padding: '0 1rem', boxSizing: 'border-box' },
+  header: { borderLeft: '4px solid #0ea5e9', paddingLeft: '0.75rem', marginBottom: '1.5rem' },
   btn: { padding: '0.6rem 1.5rem', background: '#0ea5e9', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer' },
   controls: { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.75rem', marginTop: '1.25rem' },
   pageBtn: {
@@ -84,8 +86,11 @@ export default function PatientDashboard() {
 
   return (
     <div style={styles.page}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'baseline', gap: '0.5rem', marginBottom: '1.5rem' }}>
-        <h2 style={{ color: '#e2e8f0', margin: 0 }}>{t('patient.title')}</h2>
+      <div style={styles.header}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.75rem', marginBottom: '0.25rem' }}>
+          <h2 style={{ color: '#e2e8f0', margin: 0 }}>{t('patient.title')}</h2>
+          <RoleBadge role="patient" />
+        </div>
         {total > 0 && (
           <span style={{ color: '#64748b', fontSize: '0.85rem' }}>
             Showing {records.length} of {total}
