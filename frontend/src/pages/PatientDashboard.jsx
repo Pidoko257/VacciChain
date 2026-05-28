@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../hooks/useFreighter';
 import { useVaccination } from '../hooks/useVaccination';
+import { useConsent } from '../hooks/useConsent';
 import NFTCard from '../components/NFTCard';
 import NFTCardSkeleton from '../components/NFTCardSkeleton';
 import RecordDetailModal from '../components/RecordDetailModal';
@@ -24,7 +25,7 @@ const styles = {
 
 export default function PatientDashboard() {
   const { t } = useTranslation();
-  const { publicKey, connect } = useAuth();
+  const { publicKey, connect, disconnect } = useAuth();
   const { fetchRecords, loading } = useVaccination();
   const { consented, checkConsent, giveConsent, loading: consentLoading } = useConsent();
   const [records, setRecords] = useState([]);
@@ -55,6 +56,8 @@ export default function PatientDashboard() {
     const next = Math.min(Math.max(1, p), totalPages);
     load(next);
   };
+
+  const handleDeclineConsent = () => disconnect();
 
   if (!publicKey) {
     return (
