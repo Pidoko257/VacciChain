@@ -25,7 +25,7 @@ const styles = {
 
 export default function PatientDashboard() {
   const { t } = useTranslation();
-  const { publicKey, connect } = useAuth();
+  const { publicKey, connect, disconnect } = useAuth();
   const { fetchRecords, loading } = useVaccination();
   const { consented, checkConsent, giveConsent, loading: consentLoading } = useConsent();
   const [records, setRecords] = useState([]);
@@ -57,6 +57,8 @@ export default function PatientDashboard() {
   const handleDeclineConsent = () => {
     setError('You must provide consent to view vaccination records.');
   };
+
+  const handleDeclineConsent = () => disconnect();
 
   if (!publicKey) {
     return (

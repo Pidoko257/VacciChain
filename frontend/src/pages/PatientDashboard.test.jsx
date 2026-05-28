@@ -3,6 +3,7 @@ import PatientDashboard from './PatientDashboard';
 
 jest.mock('../hooks/useFreighter', () => ({ useAuth: jest.fn() }));
 jest.mock('../hooks/useVaccination', () => ({ useVaccination: jest.fn() }));
+jest.mock('../hooks/useConsent', () => ({ useConsent: jest.fn() }));
 jest.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key, opts) => {
@@ -18,17 +19,22 @@ jest.mock('react-i18next', () => ({
 
 import { useAuth } from '../hooks/useFreighter';
 import { useVaccination } from '../hooks/useVaccination';
+import { useConsent } from '../hooks/useConsent';
 
 const WALLET = 'G12345678901234567890123456789012345678901234567890123456';
 
 describe('PatientDashboard', () => {
   const mockConnect = jest.fn();
+  const mockDisconnect = jest.fn();
 
-  beforeEach(() => { jest.clearAllMocks(); });
+  beforeEach(() => {
+    jest.clearAllMocks();
+    useConsent.mockReturnValue({ consented: null, checkConsent: jest.fn(), giveConsent: jest.fn(), loading: false });
+  });
 
   describe('when not connected', () => {
     beforeEach(() => {
-      useAuth.mockReturnValue({ publicKey: null, connect: mockConnect });
+      useAuth.mockReturnValue({ publicKey: null, connect: mockConnect, disconnect: mockDisconnect });
       useVaccination.mockReturnValue({ fetchRecords: jest.fn(), loading: false });
     });
 
@@ -46,7 +52,7 @@ describe('PatientDashboard', () => {
 
   describe('when connected', () => {
     beforeEach(() => {
-      useAuth.mockReturnValue({ publicKey: WALLET, connect: mockConnect });
+      useAuth.mockReturnValue({ publicKey: WALLET, connect: mockConnect, disconnect: mockDisconnect });
     });
 
     it('shows title', async () => {
