@@ -1,5 +1,4 @@
 const express = require('express');
-const { z } = require('zod');
 const StellarSdk = require('@stellar/stellar-sdk');
 const authMiddleware = require('../middleware/auth');
 const issuerMiddleware = require('../middleware/issuer');
@@ -9,22 +8,9 @@ const { resolveContractErrorMessage, mapContractError } = require('../stellar/co
 const { audit } = require('../middleware/auditLog');
 const validate = require('../middleware/validate');
 const { hasConsented } = require('../indexer/db');
+const { issueSchema, revokeSchema } = require('./schemas/vaccination.schemas');
 
 const router = express.Router();
-
-const issueSchema = z.object({
-  patient_address: z.string().min(1, 'patient_address is required'),
-  vaccine_name: z.string().min(1, 'vaccine_name is required'),
-  date_administered: z.string().refine((val) => !isNaN(Date.parse(val)), {
-    message: 'Invalid date format',
-  }),
-  dose_number: z.number().int().min(1).optional(),
-  dose_series: z.number().int().min(1).optional(),
-});
-
-const revokeSchema = z.object({
-  token_id: z.union([z.string(), z.number()]).transform((val) => String(val)),
-});
 
 /**
  * @swagger
