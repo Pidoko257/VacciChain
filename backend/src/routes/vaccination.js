@@ -1,37 +1,16 @@
 const express = require('express');
-const { z } = require('zod');
 const StellarSdk = require('@stellar/stellar-sdk');
 const authMiddleware = require('../middleware/auth');
 const issuerMiddleware = require('../middleware/issuer');
 const { validateStellarPublicKey } = require('../middleware/wallet');
-const { invokeContract, simulateContract, mintVaccination } = require('../stellar/soroban');
-const { resolveContractErrorMessage } = require('../stellar/contractErrors');
+const { invokeContract, simulateContract, mintVaccination, sendRpcTimeout, SorobanTimeoutError } = require('../stellar/soroban');
+const { resolveContractErrorMessage, mapContractError } = require('../stellar/contractErrors');
 const { audit } = require('../middleware/auditLog');
 const validate = require('../middleware/validate');
 const { hasConsented } = require('../indexer/db');
+const { issueSchema, revokeSchema } = require('./schemas/vaccination.schemas');
 
 const router = express.Router();
-
-const issueSchema = z.object({
-  patient_address: z.string().refine((val) => {
-    try {
-      StellarSdk.Address.fromString(val);
-      return true;
-    } catch {
-      return false;
-    }
-  }, { message: 'Invalid Stellar address' }),
-  vaccine_name: z.string().min(1, 'vaccine_name is required'),
-  date_administered: z.string().refine((val) => !isNaN(Date.parse(val)), {
-    message: 'Invalid date format',
-  }),
-  dose_number: z.number().int().min(1).optional(),
-  dose_series: z.number().int().min(1).optional(),
-});
-
-const revokeSchema = z.object({
-  token_id: z.union([z.string(), z.number()]).transform((val) => String(val)),
-});
 
 /**
  * @swagger
@@ -96,6 +75,7 @@ router.post(
   '/issue',
   authMiddleware,
   issuerMiddleware,
+  validateStellarPublicKey('body', 'patient_address'),
   validate(issueSchema),
   async (req, res) => {
   const { patient_address, vaccine_name, date_administered, dose_number, dose_series } = req.body;
@@ -131,6 +111,7 @@ router.post(
       timestamp,
     });
   } catch (err) {
+    if (err instanceof SorobanTimeoutError) return sendRpcTimeout(res);
     const errorMessage = resolveContractErrorMessage(err);
     audit({
       actor: req.user.publicKey,
@@ -139,6 +120,10 @@ router.post(
       result: 'failure',
       meta: { error: errorMessage },
     });
+    const mapped = mapContractError(err);
+    if (mapped?.name === 'DuplicateRecord') {
+      return res.status(409).json({ error: errorMessage });
+    }
     res.status(500).json({ error: errorMessage });
   }
 });
@@ -214,6 +199,7 @@ router.post(
 
       res.json({ success: true, token_id });
     } catch (err) {
+      if (err instanceof SorobanTimeoutError) return sendRpcTimeout(res);
       const errorMessage = resolveContractErrorMessage(err);
       audit({
         actor: req.user.publicKey,
@@ -269,7 +255,7 @@ router.post(
  *               $ref: '#/components/schemas/Error'
  */
 // GET /vaccination/:wallet — fetch paginated records for a wallet
-router.get('/:wallet', authMiddleware, validateStellarPublicKey('params', 'wallet', 'wallet'), async (req, res) => {
+router.get('/:wallet', authMiddleware, validateStellarPublicKey('params', 'wallet'), async (req, res) => {
   const { wallet } = req.params;
 
   const rawPage = req.query.page !== undefined ? Number(req.query.page) : 1;
@@ -293,6 +279,7 @@ router.get('/:wallet', authMiddleware, validateStellarPublicKey('params', 'walle
 
     res.json({ data, total, page: rawPage, limit: rawLimit });
   } catch (err) {
+    if (err instanceof SorobanTimeoutError) return sendRpcTimeout(res);
     const errorMessage = resolveContractErrorMessage(err);
     res.status(500).json({ error: errorMessage });
   }

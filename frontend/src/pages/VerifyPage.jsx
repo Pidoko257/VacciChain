@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import VerificationBadge from '../components/VerificationBadge';
 import NFTCard from '../components/NFTCard';
+import CopyButton from '../components/CopyButton';
 import { useToast } from '../hooks/useToast';
 
 const styles = {
@@ -10,20 +12,24 @@ const styles = {
 };
 
 export default function VerifyPage() {
+  const { t } = useTranslation();
   const toast = useToast();
   const [wallet, setWallet] = useState('');
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   const verify = async (address) => {
     setLoading(true);
     setResult(null);
+    setError(null);
     try {
       const res = await fetch(`/v1/verify/${address.trim()}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setResult(data);
     } catch (e) {
+      setError(e.message || 'Verification failed.');
       toast(e.message || 'Verification failed.', 'error');
     } finally {
       setLoading(false);
@@ -76,7 +82,11 @@ export default function VerifyPage() {
       {result && (
         <div style={{ marginTop: '1.5rem' }} aria-live="polite">
           <VerificationBadge vaccinated={result.vaccinated} recordCount={result.record_count} />
-          <div style={{ marginTop: '1.5rem' }}>
+          <p style={{ color: '#64748b', fontSize: '0.85rem', marginTop: '1rem', wordBreak: 'break-all', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.25rem' }}>
+            Wallet: {wallet}
+            <CopyButton text={wallet} label="wallet address" />
+          </p>
+          <div style={{ marginTop: '1rem' }}>
             {result.records?.map((r) => <NFTCard key={r.token_id} record={r} />)}
           </div>
         </div>

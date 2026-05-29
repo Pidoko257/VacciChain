@@ -1,4 +1,4 @@
-import { Routes, Route, Link, useLocation } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import Landing from './pages/Landing';
 import PatientDashboard from './pages/PatientDashboard';
 import IssuerDashboard from './pages/IssuerDashboard';
@@ -10,17 +10,7 @@ import { AuthProvider } from './hooks/useFreighter';
 import { useDarkMode } from './hooks/useDarkMode';
 import FreighterBanner from './components/FreighterBanner';
 import DemoBanner from './components/DemoBanner';
-import DarkModeToggle from './components/DarkModeToggle';
-
-function NavLink({ to, children }) {
-  const { pathname } = useLocation();
-  const active = pathname === to;
-  return (
-    <Link to={to} aria-current={active ? 'page' : undefined}>
-      {children}
-    </Link>
-  );
-}
+import NavBar from './components/NavBar';
 
 export default function App() {
   const [dark, setDark] = useDarkMode();

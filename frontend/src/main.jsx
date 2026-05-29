@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import './i18n';
 import App from './App';
+import { ToastProvider } from './hooks/useToast';
 import ErrorBoundary from './components/ErrorBoundary';
 import './index.css';
 
@@ -18,7 +19,9 @@ enableMocking().then(() => {
     <React.StrictMode>
       <BrowserRouter>
         <ErrorBoundary>
-          <App />
+          <ToastProvider>
+            <App />
+          </ToastProvider>
         </ErrorBoundary>
       </BrowserRouter>
     </React.StrictMode>
