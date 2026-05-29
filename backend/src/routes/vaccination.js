@@ -5,7 +5,7 @@ const authMiddleware = require('../middleware/auth');
 const issuerMiddleware = require('../middleware/issuer');
 const { validateStellarPublicKey } = require('../middleware/wallet');
 const { invokeContract, simulateContract, mintVaccination, sendRpcTimeout, SorobanTimeoutError } = require('../stellar/soroban');
-const { resolveContractErrorMessage } = require('../stellar/contractErrors');
+const { resolveContractErrorMessage, mapContractError } = require('../stellar/contractErrors');
 const { audit } = require('../middleware/auditLog');
 const validate = require('../middleware/validate');
 const { hasConsented } = require('../indexer/db');
@@ -134,6 +134,10 @@ router.post(
       result: 'failure',
       meta: { error: errorMessage },
     });
+    const mapped = mapContractError(err);
+    if (mapped?.name === 'DuplicateRecord') {
+      return res.status(409).json({ error: errorMessage });
+    }
     res.status(500).json({ error: errorMessage });
   }
 });
